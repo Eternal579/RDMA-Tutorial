@@ -37,6 +37,7 @@
 #define RDMAMSGR "RDMA read operation "
 #define RDMAMSGW "RDMA write operation"
 #define MSG_SIZE 64
+#define BUF_SIZE 2000000
 #if __BYTE_ORDER == __LITTLE_ENDIAN
 static inline uint64_t htonll(uint64_t x)
 {
@@ -607,7 +608,7 @@ static int resources_create(struct resources *res)
     }
 
     /* allocate the memory buffer that will hold the data */
-    size = MSG_SIZE;
+    size = BUF_SIZE;
     res->buf = (char *) malloc(size);
     if(!res->buf)
     {
@@ -1197,73 +1198,73 @@ int main(int argc, char *argv[])
     }
 
 
-    fprintf(stdout, "\nTest 1: server use 'RDMA send' to client\n");
-    /* let the server post the sr */
-    if(!config.server_name)
-    {
-        if(post_send(&res, IBV_WR_SEND))
-        {
-            fprintf(stderr, "failed to post SR from server side\n");
-            goto main_exit;
-        }
-    }
-    /* in both sides we expect to get a completion */
-    if(poll_completion(&res))
-    {
-        fprintf(stderr, "poll completion failed\n");
-        goto main_exit;
-    }
-    /* after polling the completion we have the message in the client buffer too */
-    if(config.server_name)
-    {
-        fprintf(stdout, "Message is: '%s'\n", res.buf);
-    }
+    // fprintf(stdout, "\nTest 1: server use 'RDMA send' to client\n");
+    // /* let the server post the sr */
+    // if(!config.server_name)
+    // {
+    //     if(post_send(&res, IBV_WR_SEND))
+    //     {
+    //         fprintf(stderr, "failed to post SR from server side\n");
+    //         goto main_exit;
+    //     }
+    // }
+    // /* in both sides we expect to get a completion */
+    // if(poll_completion(&res))
+    // {
+    //     fprintf(stderr, "poll completion failed\n");
+    //     goto main_exit;
+    // }
+    // /* after polling the completion we have the message in the client buffer too */
+    // if(config.server_name)
+    // {
+    //     fprintf(stdout, "Message is: '%s'\n", res.buf);
+    // }
     
-    /* Sync so we are sure server side has data ready before client tries to read it */
-    if(sock_sync_data(res.sock, 1, "R", &temp_char))  /* just send a dummy char back and forth */
-    {
-        fprintf(stderr, "sync error before RDMA ops\n");
-        rc = 1;
-        goto main_exit;
-    }
+    // /* Sync so we are sure server side has data ready before client tries to read it */
+    // if(sock_sync_data(res.sock, 1, "R", &temp_char))  /* just send a dummy char back and forth */
+    // {
+    //     fprintf(stderr, "sync error before RDMA ops\n");
+    //     rc = 1;
+    //     goto main_exit;
+    // }
 
 
-    fprintf(stdout, "\nTest 2: client use 'RDMA send' to server\n");
-    // let the client post the Send Request
-    if (config.server_name){
-        fprintf(stdout, "fill the buffer with '%s'\n", MSG_C);
-        strcpy(res.buf, MSG_C);
-        fprintf(stdout, "going to send the message: '%s'\n", res.buf);
-        if (post_send(&res, IBV_WR_SEND)){
-            fprintf(stderr, "failed to post SR from client side\n");
-            goto main_exit;
-        }
-    }
-    // let the server post the Receive Request
-    else{
-        if (post_receive(&res)){
-            fprintf(stderr, "failed to post RR from server side\n");
-            goto main_exit;
-        }
-    }
-    if(poll_completion(&res))
-    {
-        fprintf(stderr, "poll completion failed\n");
-        goto main_exit;
-    }
-    /* after polling the completion we have the message in the server buffer too */
-    if(!config.server_name)
-    {
-        fprintf(stdout, "Message is: '%s'\n", res.buf);
-    }
+    // fprintf(stdout, "\nTest 2: client use 'RDMA send' to server\n");
+    // // let the client post the Send Request
+    // if (config.server_name){
+    //     fprintf(stdout, "fill the buffer with '%s'\n", MSG_C);
+    //     strcpy(res.buf, MSG_C);
+    //     fprintf(stdout, "going to send the message: '%s'\n", res.buf);
+    //     if (post_send(&res, IBV_WR_SEND)){
+    //         fprintf(stderr, "failed to post SR from client side\n");
+    //         goto main_exit;
+    //     }
+    // }
+    // // let the server post the Receive Request
+    // else{
+    //     if (post_receive(&res)){
+    //         fprintf(stderr, "failed to post RR from server side\n");
+    //         goto main_exit;
+    //     }
+    // }
+    // if(poll_completion(&res))
+    // {
+    //     fprintf(stderr, "poll completion failed\n");
+    //     goto main_exit;
+    // }
+    // /* after polling the completion we have the message in the server buffer too */
+    // if(!config.server_name)
+    // {
+    //     fprintf(stdout, "Message is: '%s'\n", res.buf);
+    // }
 
-    /* Sync so we are sure server side has data ready before client tries to read it */
-    if(sock_sync_data(res.sock, 1, "S", &temp_char))  /* just send a dummy char back and forth */
-    {
-        fprintf(stderr, "sync error before RDMA ops\n");
-        rc = 1;
-        goto main_exit;
-    }
+    // /* Sync so we are sure server side has data ready before client tries to read it */
+    // if(sock_sync_data(res.sock, 1, "S", &temp_char))  /* just send a dummy char back and forth */
+    // {
+    //     fprintf(stderr, "sync error before RDMA ops\n");
+    //     rc = 1;
+    //     goto main_exit;
+    // }
 
 
     fprintf(stdout, "\nTest 3: client use 'RDMA read' to server\n");
@@ -1272,6 +1273,10 @@ int main(int argc, char *argv[])
         fprintf(stdout, "fill the buffer with '%s'\n", RDMAMSGR);
         /* setup server buffer with read message */
         strcpy(res.buf, RDMAMSGR);
+        for (int i = 0; i < 100000; i++) 
+        {
+            strcat(res.buf, RDMAMSGR);
+        }
     }
     if(sock_sync_data(res.sock, 1, "S", &temp_char))  /* just send a dummy char back and forth */
     {
@@ -1310,33 +1315,37 @@ int main(int argc, char *argv[])
     }
 
 
-    fprintf(stdout, "\nTest4: client use 'RDMA write' to server\n");
-    if(config.server_name)
-    {
-        /* Now we replace what's in the server's buffer */
-        strcpy(res.buf, RDMAMSGW);
-        fprintf(stdout, "Now replacing it with: '%s'\n", res.buf);
-        if(post_send(&res, IBV_WR_RDMA_WRITE))
-        {
-            fprintf(stderr, "failed to post SR 3\n");
-            rc = 1;
-            goto main_exit;
-        }
-        if(poll_completion(&res))
-        {
-            fprintf(stderr, "poll completion failed 3\n");
-            rc = 1;
-            goto main_exit;
-        }
-    }
+    // fprintf(stdout, "\nTest4: client use 'RDMA write' to server\n");
+    // if(config.server_name)
+    // {
+    //     /* Now we replace what's in the server's buffer */
+    //     strcpy(res.buf, RDMAMSGW);
+    //     for (int i = 0; i < 100; i++) 
+    //     {
+    //         strcat(res.buf, RDMAMSGR);
+    //     }
+    //     fprintf(stdout, "Now replacing it with: '%s'\n", res.buf);
+    //     if(post_send(&res, IBV_WR_RDMA_WRITE))
+    //     {
+    //         fprintf(stderr, "failed to post SR 3\n");
+    //         rc = 1;
+    //         goto main_exit;
+    //     }
+    //     if(poll_completion(&res))
+    //     {
+    //         fprintf(stderr, "poll completion failed 3\n");
+    //         rc = 1;
+    //         goto main_exit;
+    //     }
+    // }
 
-    /* Sync so server will know that client is done mucking with its memory */
-    if(sock_sync_data(res.sock, 1, "W", &temp_char))  /* just send a dummy char back and forth */
-    {
-        fprintf(stderr, "sync error after RDMA ops\n");
-        rc = 1;
-        goto main_exit;
-    }
+    // /* Sync so server will know that client is done mucking with its memory */
+    // if(sock_sync_data(res.sock, 1, "W", &temp_char))  /* just send a dummy char back and forth */
+    // {
+    //     fprintf(stderr, "sync error after RDMA ops\n");
+    //     rc = 1;
+    //     goto main_exit;
+    // }
 
     if(!config.server_name)
     {
